@@ -20,20 +20,19 @@ def fetch_movie_details(movie_id):
 
         url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={API_KEY}"
 
-        response = requests.get(url, timeout=10)
-
-        # DEBUG OUTPUT
-        print("Movie ID:", movie_id)
-        print("Status Code:", response.status_code)
-        print("Response:", response.json())
+        response = requests.get(url, timeout=30)
 
         if response.status_code != 200:
+
             return {
                 "poster": PLACEHOLDER,
                 "rating": "N/A",
                 "release_date": "N/A",
                 "overview": "No overview available.",
-                "genres": "N/A"
+                "genres": "N/A",
+                "runtime": "N/A",
+                "budget": 0,
+                "revenue": 0
             }
 
         data = response.json()
@@ -41,6 +40,7 @@ def fetch_movie_details(movie_id):
         poster = PLACEHOLDER
 
         if data.get("poster_path"):
+
             poster = (
                 "https://image.tmdb.org/t/p/w500"
                 + data["poster_path"]
@@ -58,7 +58,10 @@ def fetch_movie_details(movie_id):
                 "overview",
                 "No overview available."
             ),
-            "genres": genres if genres else "N/A"
+            "genres": genres if genres else "N/A",
+            "runtime": data.get("runtime", "N/A"),
+            "budget": data.get("budget", 0),
+            "revenue": data.get("revenue", 0)
         }
 
     except Exception as e:
@@ -70,8 +73,40 @@ def fetch_movie_details(movie_id):
             "rating": "N/A",
             "release_date": "N/A",
             "overview": "No overview available.",
-            "genres": "N/A"
+            "genres": "N/A",
+            "runtime": "N/A",
+            "budget": 0,
+            "revenue": 0
         }
+
+
+# ==========================
+# Fetch Cast
+# ==========================
+def fetch_cast(movie_id):
+
+    try:
+
+        url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={API_KEY}"
+
+        data = requests.get(
+            url,
+            timeout=30
+        ).json()
+
+        cast_names = []
+
+        for actor in data.get("cast", [])[:5]:
+
+            cast_names.append(
+                actor["name"]
+            )
+
+        return ", ".join(cast_names)
+
+    except:
+
+        return "N/A"
 
 
 # ==========================
@@ -83,7 +118,10 @@ def fetch_trailer(movie_id):
 
         url = f"https://api.themoviedb.org/3/movie/{movie_id}/videos?api_key={API_KEY}"
 
-        data = requests.get(url).json()
+        data = requests.get(
+            url,
+            timeout=30
+        ).json()
 
         for video in data.get("results", []):
 
@@ -97,6 +135,7 @@ def fetch_trailer(movie_id):
         return None
 
     except:
+
         return None
 
 
@@ -105,9 +144,13 @@ def fetch_trailer(movie_id):
 # ==========================
 def recommend(movie):
 
-    movie_index = movies[movies['title'] == movie].index[0]
+    movie_index = movies[
+        movies['title'] == movie
+    ].index[0]
 
-    distances = similarity[movie_index]
+    distances = similarity[
+        movie_index
+    ]
 
     movie_list = sorted(
         list(enumerate(distances)),
@@ -133,7 +176,9 @@ def recommend(movie):
             fetch_movie_details(movie_id)
         )
 
-        recommended_ids.append(movie_id)
+        recommended_ids.append(
+            movie_id
+        )
 
     return (
         recommended_movies,
@@ -149,14 +194,16 @@ movies_dict = pickle.load(
     open('movie_dict.pkl', 'rb')
 )
 
-movies = pd.DataFrame(movies_dict)
+movies = pd.DataFrame(
+    movies_dict
+)
 
 similarity = pickle.load(
     open('similarity.pkl', 'rb')
 )
 
 # ==========================
-# Page Configuration
+# Page Config
 # ==========================
 st.set_page_config(
     page_title="Movie Recommendation System",
@@ -165,15 +212,25 @@ st.set_page_config(
 )
 
 # ==========================
-# UI
+# Title
 # ==========================
-st.title("🎬 MOVIE RECOMMENDATION SYSTEM")
-
-selected_movie_name = st.selectbox(
-    "Select a Movie",
-    movies['title'].values
+st.title(
+    "🎬 MOVIE RECOMMENDATION SYSTEM"
 )
 
+# ==========================
+# Searchable Movie Dropdown
+# ==========================
+selected_movie_name = st.selectbox(
+    "🔍 Search Movie",
+    sorted(
+        movies['title'].values
+    )
+)
+
+# ==========================
+# Recommendation Button
+# ==========================
 if st.button("Recommend"):
 
     movie_names, movie_details, movie_ids = recommend(
@@ -184,7 +241,9 @@ if st.button("Recommend"):
 
         st.markdown("---")
 
-        col1, col2 = st.columns([1, 2])
+        col1, col2 = st.columns(
+            [1, 2]
+        )
 
         with col1:
 
@@ -195,7 +254,9 @@ if st.button("Recommend"):
 
         with col2:
 
-            st.subheader(movie_names[i])
+            st.subheader(
+                movie_names[i]
+            )
 
             st.write(
                 f"⭐ Rating: {movie_details[i]['rating']}"
@@ -207,6 +268,26 @@ if st.button("Recommend"):
 
             st.write(
                 f"🎭 Genres: {movie_details[i]['genres']}"
+            )
+
+            st.write(
+                f"⏱ Runtime: {movie_details[i]['runtime']} min"
+            )
+
+            st.write(
+                f"💰 Budget: ${movie_details[i]['budget']:,}"
+            )
+
+            st.write(
+                f"💵 Revenue: ${movie_details[i]['revenue']:,}"
+            )
+
+            cast = fetch_cast(
+                movie_ids[i]
+            )
+
+            st.write(
+                f"🎬 Top Cast: {cast}"
             )
 
             st.write(
